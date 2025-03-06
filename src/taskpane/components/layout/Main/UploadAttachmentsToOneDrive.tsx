@@ -899,7 +899,7 @@ const handleUploadAttachments = () => {
   
       const clientId = process.env.NODE_ENV === 'development' 
       ? 'e5a4342f-c8a5-4185-948d-2e3d485b4822' 
-      : '567985e0-287c-432c-8755-90fcd55789f6';
+      : 'ce3ab054-f9ae-4f8d-b530-c7dd621e7213';
     
     const redirectURI = process.env.NODE_ENV === 'development' 
       ? 'https://localhost:3000/assets/Dialog.html' 
