@@ -268,9 +268,9 @@
 //         displayInIframe: false
 //     }
 // console.log(Item);
-// // const redirect_uri='https://shahzadumar-w.github.io/OutlookAddin_AttachmentSorter/assets/Dialog.html'
+// // const redirect_uri='https://attachment-sorter.vercel.app/assets/Dialog.html'
 // const redirect_uri_For_Local="https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=e5a4342f-c8a5-4185-948d-2e3d485b4822&response_type=token&redirect_uri=https://localhost:3000/assets/Dialog.html&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment"
-// const redirect_uri_For_LIve="https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=aaa00dc4-7743-467e-8868-596ffff59e05&response_type=token&redirect_uri=https://shahzadumar-w.github.io/OutlookAddin_AttachmentSorter/assets/Dialog.html&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment";
+// const redirect_uri_For_LIve="https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=aaa00dc4-7743-467e-8868-596ffff59e05&response_type=token&redirect_uri=https://attachment-sorter.vercel.app/assets/Dialog.html&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment";
 
 //     Office.context.ui.displayDialogAsync(
 //       redirect_uri_For_Local,
@@ -1064,29 +1064,48 @@ const EMLHandler: React.FC<AppProps> = ({ selectdItemFromAdrees }) => {
     }
   };
 
-  const uploadToPath = async (basePath: string, token: string) => {
-    try {
-      if (!emlBlob) throw new Error("No EML file available");
-      
-      const subject = Office.context.mailbox.item.subject || "email";
-      const filename = `${subject}.eml`;
-      const fullPath = `${basePath}/${filename}`
-      // const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/root:${basePath}/${filename}:/content`;
-      const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/root:${fullPath}:/content`;
+  const uploadToOneDrive = async (path: string, token: string) => {
+    if (!emlBlob) {
+      setToast({ open: true, severity: "error", message: "No EML file available" });
+      return;
+    }
 
-      const response = await axios.put(uploadUrl, emlBlob, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "message/rfc822",
-        },
+    try {
+      let sanitizedPath = path.trim().replace(/^\/+|\/+$/g, ""); // Remove extra slashes
+      if (!sanitizedPath) throw new Error("Invalid OneDrive path");
+
+      const subject = Office.context.mailbox.item.subject || "email";
+      const filename = encodeURIComponent(`${subject.replace(/\//g, "-")}.eml`); // Replace invalid characters
+      const fullPath = `${sanitizedPath}/${filename}`;
+
+      // Ensure the folder exists before uploading
+      await createFolderIfNotExists(sanitizedPath, token);
+
+      const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(fullPath)}:/content`;
+      await axios.put(uploadUrl, emlBlob, {
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "message/rfc822" },
       });
 
-      return `EML uploaded to ${basePath}/${filename}`;
-    } catch (error: any) {
-      if (error.response?.status === 401) {
-        LoginAgain(basePath, 'OneDrivepath');
+      setToast({ open: true, severity: "success", message: `EML uploaded successfully!` });
+    } catch (error) {
+      setToast({ open: true, severity: "error", message: "Upload failed. Check path and token." });
+    }
+  };
+
+  const createFolderIfNotExists = async (path: string, token: string) => {
+    try {
+      const folderUrl = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(path)}:/`;
+      await axios.get(folderUrl, { headers: { Authorization: `Bearer ${token}` } });
+    } catch (error) {
+      if (error.response?.status === 404) {
+        await axios.post(
+          `https://graph.microsoft.com/v1.0/me/drive/root/children`,
+          { name: path, folder: {} },
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+      } else {
+        throw error;
       }
-      throw error;
     }
   };
 
@@ -1127,7 +1146,7 @@ const EMLHandler: React.FC<AppProps> = ({ selectdItemFromAdrees }) => {
 
     Promise.all(paths.map(path => {
       const Token = localStorage.getItem("Token");
-      return uploadToPath(path, Token || "")
+      return uploadToOneDrive(path, Token || "")
         .catch(error => {
           setFailedPaths(prev => [...prev, path]);
           return error;
@@ -1159,8 +1178,18 @@ const EMLHandler: React.FC<AppProps> = ({ selectdItemFromAdrees }) => {
         width: 35,
         displayInIframe: false
       };
-      const redirect_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=e5a4342f-c8a5-4185-948d-2e3d485b4822&response_type=token&redirect_uri=https://localhost:3000/assets/Dialog.html&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment";
-      Office.context.ui.displayDialogAsync(redirect_uri, dialogOptions, (asyncResult) => {
+      // const redirect_uri = "https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=e5a4342f-c8a5-4185-948d-2e3d485b4822&response_type=token&redirect_uri=https://localhost:3000/assets/Dialog.html&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment";
+      const clientId = process.env.NODE_ENV === 'development' 
+      ? 'e5a4342f-c8a5-4185-948d-2e3d485b4822' 
+      : '567985e0-287c-432c-8755-90fcd55789f6';
+    
+    const redirectURI = process.env.NODE_ENV === 'development' 
+      ? 'https://localhost:3000/assets/Dialog.html' 
+      : 'https://attachment-sorter.vercel.app/assets/Dialog.html';
+    
+    const authURL = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectURI)}&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment`;
+    
+      Office.context.ui.displayDialogAsync(authURL, dialogOptions, (asyncResult) => {
         if (asyncResult.status === Office.AsyncResultStatus.Failed) return;
         const myDialog: Office.Dialog = asyncResult.value;
         myDialog.addEventHandler(Office.EventType.DialogMessageReceived, (args:any) => {
@@ -1176,101 +1205,6 @@ const EMLHandler: React.FC<AppProps> = ({ selectdItemFromAdrees }) => {
     });
   };
 
-  // const retryFailedEmails = (token: string) => {
-  //   setloading(true);
-  //   Promise.all(failedEmails.map(email => 
-  //     sendEmailWithAttachments(email, token)
-  //       .then(() => setFailedEmails(prev => prev.filter(e => e !== email)))
-  //       .finally(() => setloading(false))))
-  // };
-
-  // const retryFailedPaths = (token: string) => {
-  //   setloading(true);
-  //   Promise.all(failedPaths.map(path => 
-  //     uploadToPath(path, token)
-  //       .then(() => setFailedPaths(prev => prev.filter(p => p !== path)))
-  //       .finally(() => setloading(false))
-  //   ))
-  // };
-
-
-  // const LoginAgain=(Item:any,Type)=>{
-
-  //   Office.onReady(() => {
-  
-  //     const dialogOptions: Office.DialogOptions = {
-  //         height: 40,
-  //         width: 35,
-  //         displayInIframe: false
-  //     }
-  // console.log(Item);
-  // // const redirect_uri='https://shahzadumar-w.github.io/OutlookAddin_AttachmentSorter/assets/Dialog.html'
-  // const redirect_uri_For_Local="https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=e5a4342f-c8a5-4185-948d-2e3d485b4822&response_type=token&redirect_uri=https://localhost:3000/assets/Dialog.html&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment"
-  // const redirect_uri_For_LIve="https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=aaa00dc4-7743-467e-8868-596ffff59e05&response_type=token&redirect_uri=https://shahzadumar-w.github.io/OutlookAddin_AttachmentSorter/assets/Dialog.html&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment";
-  
-  //     Office.context.ui.displayDialogAsync(
-  //       redirect_uri_For_Local,
-  //         dialogOptions,
-  //         (asyncResult) => {
-  
-  //             if (asyncResult.status == Office.AsyncResultStatus.Failed) {
-  //                 console.log("Opening Dialogue Box FAILED Async" + asyncResult.error.message);
-  //                 return;
-  //             }
-  //             const myDialog: Office.Dialog = asyncResult.value;
-  //             myDialog.addEventHandler(Office.EventType.DialogMessageReceived,
-  //                 (args: Office.DialogParentMessageReceivedEventArgs) => {
-  //                     const token = args.message
-  //                     if (token ) {
-  //                         localStorage.setItem("Token", token);
-  //                         // Re-attempt the failed operations
-  //             if (Type === "sendEmail") {
-  //               retryFailedEmails(token);
-  //           } else if (Type === "OneDrivepath") {
-  //               retryFailedPaths(token);
-  //           }
-  
-  //                         localStorage.setItem('Token', token);
-  //                     }
-  //                     else {
-  
-  //                         //You Might had passed Error parameters. Debug
-  //                         localStorage.removeItem("Token");
-  //                         console.error("Got Empty/Incorrect response value @ Dialog window ");
-  //                         //Debugger here (Check your value & Format. Is length fine?)
-  
-  //                     }
-  
-  //                     myDialog.close() //Closes it even incase wrong value
-  
-  //                     let existingNotifcaiton:any = Office.context.mailbox.item.notificationMessages.getAllAsync(() => { })
-  //                     //Remove if same tag exist; no spam
-  
-  //                     Office.context.mailbox.item.notificationMessages.addAsync('Token Notifcation Success ' + existingNotifcaiton.value.length,
-  //                         {
-  //                             type: Office.MailboxEnums.ItemNotificationMessageType.InformationalMessage,
-  //                             message: 'Updated Authentication',
-  //                             icon: "icon_01",
-  //                             persistent: false
-  
-  //                         },
-  
-  //                         () => { })
-  
-  //                 });
-  
-  //             myDialog.addEventHandler(Office.EventType.DialogEventReceived, (arg:any) => {
-  
-  //                 console.error("Dialog Event" + arg.error); //Another Handler if dialog crashses during session time (ie window suddenly closed, access is invalid & etc
-  //             });
-  
-  //         }
-  //     );
-  
-  
-  // })
-  // }
-  
   const retryFailedEmails = (token: string) => {
       setloading(true);
   
@@ -1307,7 +1241,7 @@ const EMLHandler: React.FC<AppProps> = ({ selectdItemFromAdrees }) => {
       setloading(true);
   
       Promise.all(failedPaths.map(path =>
-          uploadToPath(path, token)
+        uploadToOneDrive(path, token)
               .then(() => {
                   console.log(`Successfully uploaded to path ${path}`);
                   setFailedPaths(prev => prev.filter(p => p !== path)); // Remove path from failed list
@@ -1506,3 +1440,211 @@ const EMLHandler: React.FC<AppProps> = ({ selectdItemFromAdrees }) => {
 };
 
 export default EMLHandler;
+
+
+
+
+
+// import React, { useState, useEffect } from "react";
+// import {
+//   Box,
+//   Typography,
+//   TextField,
+//   Button,
+//   IconButton,
+//   Drawer,
+//   Select,
+//   MenuItem,
+//   FormControl,
+//   InputLabel,
+//   ListItemText,
+//   Checkbox,
+//   Snackbar,
+//   Alert,
+// } from "@mui/material";
+// import { RiMailSendLine, RiSettings5Line } from "react-icons/ri";
+// import axios from "axios";
+// import LoaderApp from "../../Loader/Loader";
+
+// interface AppProps {
+//   selectdItemFromAdrees: any;
+// }
+
+// const EMLHandler: React.FC<AppProps> = ({ selectdItemFromAdrees }) => {
+//   const [drawerOpen, setDrawerOpen] = useState(false);
+//   const [emlBlob, setEmlBlob] = useState<Blob | null>(null);
+//   const [loading, setLoading] = useState(false);
+//   const [toast, setToast] = useState({ open: false, severity: "info", message: "" });
+
+//   // Email recipients & OneDrive paths
+//   const [onedrivePaths, setOnedrivePaths] = useState({
+//     path1: "/Attachments/Demo/Folder1",
+//     path2: "/Attachments/Demo/Folder2",
+//     path3: "/Attachments/Demo/Folder3",
+//   });
+
+//   const [selectedPaths, setSelectedPaths] = useState<string[]>([]);
+
+//   useEffect(() => {
+//     const savedPaths = localStorage.getItem("onedrivePaths");
+//     if (savedPaths) setOnedrivePaths(JSON.parse(savedPaths));
+//     fetchEmailBlob();
+//   }, [selectdItemFromAdrees]);
+
+//   const fetchEmailBlob = async () => {
+//     setLoading(true);
+//     try {
+//       const blob = await getEmailBlob();
+//       setEmlBlob(blob);
+//     } catch (error) {
+//       setToast({ open: true, severity: "error", message: "Failed to retrieve EML file" });
+//     }
+//     setLoading(false);
+//   };
+
+//   const getEmailBlob = (): Promise<Blob> => {
+//     return new Promise((resolve, reject) => {
+//       Office.context.mailbox.getCallbackTokenAsync({ isRest: true }, (result) => {
+//         if (result.status !== Office.AsyncResultStatus.Succeeded) {
+//           reject(result.error);
+//           return;
+//         }
+
+//         const token = result.value;
+//         const getMessageUrl = `${Office.context.mailbox.restUrl}/v2.0/me/messages/${Office.context.mailbox.convertToRestId(
+//           Office.context.mailbox.item.itemId,
+//           Office.MailboxEnums.RestVersion.v2_0
+//         )}/$value`;
+
+//         fetch(getMessageUrl, {
+//           headers: { Authorization: `Bearer ${token}` },
+//         })
+//           .then((response) => response.blob())
+//           .then(resolve)
+//           .catch(reject);
+//       });
+//     });
+//   };
+
+//   const uploadToOneDrive = async (path: string, token: string) => {
+//     if (!emlBlob) {
+//       setToast({ open: true, severity: "error", message: "No EML file available" });
+//       return;
+//     }
+
+//     try {
+//       let sanitizedPath = path.trim().replace(/^\/+|\/+$/g, ""); // Remove extra slashes
+//       if (!sanitizedPath) throw new Error("Invalid OneDrive path");
+
+//       const subject = Office.context.mailbox.item.subject || "email";
+//       const filename = encodeURIComponent(`${subject.replace(/\//g, "-")}.eml`); // Replace invalid characters
+//       const fullPath = `${sanitizedPath}/${filename}`;
+
+//       // Ensure the folder exists before uploading
+//       await createFolderIfNotExists(sanitizedPath, token);
+
+//       const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(fullPath)}:/content`;
+//       await axios.put(uploadUrl, emlBlob, {
+//         headers: { Authorization: `Bearer ${token}`, "Content-Type": "message/rfc822" },
+//       });
+
+//       setToast({ open: true, severity: "success", message: `EML uploaded successfully!` });
+//     } catch (error) {
+//       setToast({ open: true, severity: "error", message: "Upload failed. Check path and token." });
+//     }
+//   };
+
+//   const createFolderIfNotExists = async (path: string, token: string) => {
+//     try {
+//       const folderUrl = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(path)}:/`;
+//       await axios.get(folderUrl, { headers: { Authorization: `Bearer ${token}` } });
+//     } catch (error) {
+//       if (error.response?.status === 404) {
+//         await axios.post(
+//           `https://graph.microsoft.com/v1.0/me/drive/root/children`,
+//           { name: path, folder: {} },
+//           { headers: { Authorization: `Bearer ${token}` } }
+//         );
+//       } else {
+//         throw error;
+//       }
+//     }
+//   };
+
+//   return (
+//     <div>
+//       {loading && <LoaderApp />}
+//       <Box>
+//         <Typography
+//           variant="h5"
+//           sx={{
+//             marginBottom: 2,
+//             textAlign: "center",
+//             fontWeight: "bold",
+//             display: "flex",
+//             alignItems: "center",
+//             justifyContent: "space-between",
+//             fontSize: "20px",
+//           }}
+//         >
+//           <div>
+//             <RiMailSendLine style={{ marginRight: 8 }} />
+//             EML File Handler
+//           </div>
+//           <IconButton onClick={() => setDrawerOpen(true)}>
+//             <RiSettings5Line />
+//           </IconButton>
+//         </Typography>
+
+//         {/* OneDrive Path Selection */}
+//         <FormControl fullWidth sx={{ marginBottom: 2 }}>
+//           <InputLabel>OneDrive Paths</InputLabel>
+//           <Select
+//             multiple
+//             value={selectedPaths}
+//             onChange={(e) => setSelectedPaths(e.target.value as string[])}
+//             renderValue={(selected) => (selected as string[]).join(", ")}
+//           >
+//             {Object.entries(onedrivePaths).map(([key, path]) => (
+//               <MenuItem key={key} value={path}>
+//                 <Checkbox checked={selectedPaths.includes(path)} />
+//                 <ListItemText primary={path} />
+//               </MenuItem>
+//             ))}
+//           </Select>
+//         </FormControl>
+
+//         <Button variant="contained" fullWidth onClick={() => uploadToOneDrive(selectedPaths[0], localStorage.getItem("Token") || "")}>
+//           Upload to OneDrive
+//         </Button>
+
+//         {/* Settings Drawer */}
+//         <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)}>
+//           <Box padding={"10px"}>
+//             <Typography variant="h6">Configuration Settings</Typography>
+//             {Object.entries(onedrivePaths).map(([key, path]) => (
+//               <TextField
+//                 key={key}
+//                 fullWidth
+//                 label={`Path ${key.slice(-1)}`}
+//                 value={path}
+//                 onChange={(e) => setOnedrivePaths((prev) => ({ ...prev, [key]: e.target.value })) }
+//                 sx={{ marginBottom: 2 }}
+//               />
+//             ))}
+//             <Button fullWidth variant="contained" onClick={() => localStorage.setItem("onedrivePaths", JSON.stringify(onedrivePaths))}>
+//               Save
+//             </Button>
+//           </Box>
+//         </Drawer>
+
+//         {/* Snackbar Notifications */}
+//         <Snackbar open={toast.open} autoHideDuration={6000} onClose={() => setToast({ ...toast, open: false })}>
+//           <Alert severity={toast.severity as any}>{toast.message}</Alert>
+//         </Snackbar>
+//       </Box>
+//     </div>
+//   );
+// };
+
+// export default EMLHandler;

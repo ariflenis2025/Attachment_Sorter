@@ -4,10 +4,11 @@ const devCerts = require("office-addin-dev-certs");
 const CopyWebpackPlugin = require("copy-webpack-plugin");
 const HtmlWebpackPlugin = require("html-webpack-plugin");
 const webpack = require("webpack");
-
+const NodePollyfillPlugin=require('node-polyfill-webpack-plugin')
+const Dotenv=require('dotenv-webpack')
 const urlDev = "https://localhost:3000/";
-const urlProd = "https://www.contoso.com/"; // CHANGE THIS TO YOUR PRODUCTION DEPLOYMENT LOCATION
-// const urlProd = "https://shahzadumar-w.github.io/OutlookAddin_AttachmentSorter/"; // CHANGE THIS TO YOUR PRODUCTION DEPLOYMENT LOCATION
+// const urlProd = "https://www.contoso.com/"; // CHANGE THIS TO YOUR PRODUCTION DEPLOYMENT LOCATION
+const urlProd = "https://attachment-sorter.vercel.app/"; // CHANGE THIS TO YOUR PRODUCTION DEPLOYMENT LOCATION
 
 async function getHttpsOptions() {
   const httpsOptions = await devCerts.getHttpsServerOptions();
@@ -97,6 +98,8 @@ module.exports = async (env, options) => {
       new webpack.ProvidePlugin({
         Promise: ["es6-promise", "Promise"],
       }),
+      new Dotenv(),
+      new NodePollyfillPlugin(),
     ],
     devServer: {
       hot: true,
@@ -113,3 +116,4 @@ module.exports = async (env, options) => {
 
   return config;
 };
+

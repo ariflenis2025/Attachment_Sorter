@@ -585,39 +585,6 @@ const UploadAttachmentsToOneDrive: React.FC<AppProps> = ({ selectdItemFromAdrees
     );
   };
 
-  // Upload to OneDrive
-  // const uploadToPath = async (path: string, Token: string, attachment: Attachment, callback: (data: any, error: any) => void) => {
-  //   setIsUploading(true);
-  //   setErrorMessage("");
-  //   try {
-  //     if (!attachment.contentBytes) {
-  //       callback(null, "Attachment content is missing.");
-  //       return;
-  //     }
-
-  //     const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/root:/${path}/${attachment.name}:/content`;
-
-  //     await axios.put(uploadUrl, attachment.contentBytes, {
-  //       headers: {
-  //         Authorization: `Bearer ${Token}`,
-  //         "Content-Type": attachment.contentType,
-  //       },
-  //     });
-  //     callback(`${attachment.name} uploaded successfully to ${path}`, null);
-  //   } catch (error) {
-  //     setErrorMessage(`Error uploading ${attachment.name} to ${path}. Please try again.`);
-  //     console.error(`Upload error for ${attachment.name} to ${path}:`, error);
-  //     callback(null, error);
-  //   } finally {
-  //     setIsUploading(false);
-  //   }
-  // };
-
-
-
-
-
-
   const uploadToPath = async (path, token, callback) => {
     if (selectedAttachments.length === 0) {
       setErrorMessage("No attachments selected for upload.");
@@ -717,13 +684,6 @@ const UploadAttachmentsToOneDrive: React.FC<AppProps> = ({ selectdItemFromAdrees
   };
   
   
-  
-
-
-
-
-
-
   const uploadAllAttachmentsToPaths = async (Token: string) => {
     setIsUploading(true);
     setErrorMessage("");
@@ -761,10 +721,96 @@ const UploadAttachmentsToOneDrive: React.FC<AppProps> = ({ selectdItemFromAdrees
     }
   };
 
-  const handleUploadAttachments = () => {
-    const Token = localStorage.getItem("Token");
-    uploadAllAttachmentsToPaths(Token);
-  };
+ const uploadToOneDrive = async (path: string, token: string) => {
+    if (selectedAttachments.length === 0) {
+        setErrorMessage("No attachments selected for upload.");
+        return;
+    }
+    setIsUploading(true);
+    setErrorMessage("");
+    try {
+        // 🛠 **Sanitize and Format Path Correctly**
+        let sanitizedPath = path.trim(); // Remove extra spaces
+        sanitizedPath = sanitizedPath.replace(/\/+/g, "/"); // Remove duplicate slashes
+        sanitizedPath = sanitizedPath.replace(/^\/|\/$/g, ""); // Remove leading/trailing slashes
+
+        if (sanitizedPath.includes("//") || sanitizedPath.includes("..")) {
+            throw new Error("Invalid path format");
+        }
+
+        // 🚀 **Ensure Folder Exists**
+        const pathSegments = sanitizedPath.split("/").filter(Boolean);
+        let currentPath = "";
+
+        for (const segment of pathSegments) {
+            if (segment.includes("/") || segment.includes(":")) {
+                throw new Error(`Invalid folder name: ${segment}`);
+            }
+
+            currentPath = currentPath ? `${currentPath}/${segment}` : segment;
+            const encodedPath = encodeURIComponent(currentPath);
+            const folderUrl = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodedPath}:/`;
+
+            try {
+                await axios.get(folderUrl, { headers: { Authorization: `Bearer ${token}` } });
+            } catch (error) {
+                if (error.response?.status === 404) {
+                    // **Create Missing Folder**
+                    const parentPath = currentPath.substring(0, currentPath.lastIndexOf("/"));
+                    const encodedParentPath = encodeURIComponent(parentPath);
+                    const parentUrl = parentPath
+                        ? `https://graph.microsoft.com/v1.0/me/drive/root:/${encodedParentPath}:/children`
+                        : `https://graph.microsoft.com/v1.0/me/drive/root/children`;
+
+                    await axios.post(
+                        parentUrl,
+                        { name: segment, folder: {} },
+                        { headers: { Authorization: `Bearer ${token}` } }
+                    );
+                } else {
+                    throw error;
+                }
+            }
+        }
+
+        // 🚀 **Upload Attachments**
+        for (const attachment of attachments.filter((a) => selectedAttachments.includes(a.id))) {
+            if (!attachment.contentBytes) continue;
+
+            const encodedFileName = encodeURIComponent(attachment.name);
+            const uploadUrl = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(sanitizedPath)}/${encodedFileName}:/content`;
+
+            await axios.put(uploadUrl, attachment.contentBytes, {
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": attachment.contentType,
+                },
+            });
+        }
+
+        // ✅ **Upload Successful**
+        setUploadSuccess(true);
+        setSelectedAttachments([]);
+    } catch (error) {
+        console.error("OneDrive Upload Error:", error);
+        setErrorMessage(error.response?.data?.error?.message || "Error uploading to OneDrive.");
+    } finally {
+        setIsUploading(false);
+    }
+};
+
+// 🔄 **Batch Upload Function**
+const handleUploadAttachments = () => {
+    const token = localStorage.getItem("Token");
+    if (!token) {
+        setErrorMessage("Authentication token missing. Please login again.");
+        return;
+    }
+
+    setIsUploading(true);
+    selectedPaths.forEach((path) => uploadToOneDrive(path, token));
+    setIsUploading(false);
+};
 
   // Handle drawer save
   const handleSave = () => {
@@ -848,11 +894,24 @@ const UploadAttachmentsToOneDrive: React.FC<AppProps> = ({ selectdItemFromAdrees
           width: 35,
           displayInIframe: false
       }
-      const redirect_uri_For_Local="https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=e5a4342f-c8a5-4185-948d-2e3d485b4822&response_type=token&redirect_uri=https://localhost:3000/assets/Dialog.html&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment"
-      const redirect_uri_For_LIve="https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=aaa00dc4-7743-467e-8868-596ffff59e05&response_type=token&redirect_uri=https://shahzadumar-w.github.io/OutlookAddin_AttachmentSorter/assets/Dialog.html&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment";
+      // const redirect_uri_For_Local="https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=e5a4342f-c8a5-4185-948d-2e3d485b4822&response_type=token&redirect_uri=https://localhost:3000/assets/Dialog.html&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment"
+      // const redirect_uri_For_LIve="https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=aaa00dc4-7743-467e-8868-596ffff59e05&response_type=token&redirect_uri=https://shahzadumar-w.github.io/OutlookAddin_AttachmentSorter/assets/Dialog.html&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment";
   
+      const clientId = process.env.NODE_ENV === 'development' 
+      ? 'e5a4342f-c8a5-4185-948d-2e3d485b4822' 
+      : '567985e0-287c-432c-8755-90fcd55789f6';
+    
+    const redirectURI = process.env.NODE_ENV === 'development' 
+      ? 'https://localhost:3000/assets/Dialog.html' 
+      : 'https://shahzadumar-w.github.io/OutlookAddin_AttachmentSorter/assets/Dialog.html';
+    
+    const authURL = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectURI)}&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment`;
+    //const authURL = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=e5a4342f-c8a5-4185-948d-2e3d485b4822&response_type=token&redirect_uri=https://localhost:3000/assets/Dialog.html&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment`;
+  
+    console.log(authURL);
+    
       Office.context.ui.displayDialogAsync(
-        redirect_uri_For_LIve, dialogOptions,
+        authURL, dialogOptions,
           (asyncResult) => {
               if (asyncResult.status == Office.AsyncResultStatus.Failed) {
                   console.log("Opening Dialogue Box FAILED Async" + asyncResult.error.message);
