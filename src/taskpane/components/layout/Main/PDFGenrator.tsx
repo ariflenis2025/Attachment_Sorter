@@ -1187,7 +1187,7 @@ const EMLHandler: React.FC<AppProps> = ({ selectdItemFromAdrees }) => {
       ? 'https://localhost:3000/assets/Dialog.html' 
       : 'https://attachment-sorter.vercel.app/assets/Dialog.html';
     
-    const authURL = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectURI)}&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment`;
+    const authURL = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectURI}&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment`;
     
       Office.context.ui.displayDialogAsync(authURL, dialogOptions, (asyncResult) => {
         if (asyncResult.status === Office.AsyncResultStatus.Failed) return;

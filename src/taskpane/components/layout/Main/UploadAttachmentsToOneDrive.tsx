@@ -903,9 +903,9 @@ const handleUploadAttachments = () => {
     
     const redirectURI = process.env.NODE_ENV === 'development' 
       ? 'https://localhost:3000/assets/Dialog.html' 
-      : 'https://shahzadumar-w.github.io/OutlookAddin_AttachmentSorter/assets/Dialog.html';
+      : 'https://attachment-sorter.vercel.app/assets/Dialog.html';
     
-    const authURL = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${encodeURIComponent(redirectURI)}&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment`;
+    const authURL = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=${clientId}&response_type=token&redirect_uri=${redirectURI}&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment`;
     //const authURL = `https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=e5a4342f-c8a5-4185-948d-2e3d485b4822&response_type=token&redirect_uri=https://localhost:3000/assets/Dialog.html&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment`;
   
     console.log(authURL);
