@@ -1,0 +1,88 @@
+<!-- <!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
+</head>
+
+<body>
+    <h1>Login Successfully</h1>
+    <script>
+        var address_Link = window.location.href;
+        console.log(address_Link)
+        var address_arr = address_Link.split("=");
+        var address_Token = address_arr[1];
+        var Id_Token = address_Token.split("&");
+        let access_token = Id_Token[0];
+        console.log(access_token)
+
+        Office.onReady(function (appInfo) {
+            Office.context.ui.messageParent(JSON.stringify(access_token));
+        })
+    </script>
+</body>
+
+</html> -->
+
+ <!DOCTYPE html>
+ <html lang="en">
+ 
+ <head>
+     <meta charset="UTF-8">
+     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+     <title>Access Token Redirect</title>
+     <script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js" type="text/javascript"></script>
+ </head>
+ 
+ <body>
+     <h1>Authentication Successful</h1>
+     <p id="tokenStatus">Processing token...</p>
+
+   <script>
+        // Function to safely extract parameters from the URL hash/fragment
+        function getParameterByName(name) {
+            const url = window.location.hash; // Access URL after '#' for URL Fragment
+            name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+            var regex = new RegExp("[\\#&]" + name + "=([^&#]*)"),
+                results = regex.exec(url);
+            return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+        }
+
+        Office.onReady(function(reason) {
+            if (reason.error) {
+                document.getElementById('tokenStatus').innerText = `Office.js failed to initialize. Error: ${reason.error}`;
+                return; // Prevent token retrieval if Office.js fails
+            }
+
+            var accessToken = getParameterByName('access_token');
+            if (accessToken) {
+                document.getElementById('tokenStatus').innerText = 'Access token received. Sending to parent...';
+
+                // Validate accessToken format (very basic check: must not be too short and only consist of alphanumeric or .-_ characters)
+                const tokenValidationPattern = /^[a-zA-Z0-9._-]+$/;
+                if (accessToken.length < 20 || !tokenValidationPattern.test(accessToken)) {
+                    console.error('Invalid access token format.');
+                    // Log for development only! This token isn't considered secure due length & char.
+                    document.getElementById('tokenStatus').innerText = 'Invalid access token received. Please try again.';
+                } else {
+                    // Notify parent add-in only with the token. JSON unnecessary due simple payload & type safety concerns
+                    try {
+                        Office.context.ui.messageParent(accessToken);
+                    } catch (e) {
+                        console.error("Failed messageParent call, Error:", e);
+                        document.getElementById('tokenStatus').innerText = `Failed to send token due unexpected runtime Error. See browser debug log.`;
+                    }
+                }
+
+            } else {
+                document.getElementById('tokenStatus').innerText = 'Failed to receive the token.  Did login complete and redirect correctly? Check Office Add-in origin.';
+                console.warn("Access Token Missing after Authz");
+            }
+        });
+    </script>
+ </body>
+ 
+ </html>
