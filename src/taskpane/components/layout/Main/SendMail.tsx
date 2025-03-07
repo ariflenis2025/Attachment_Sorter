@@ -46,8 +46,8 @@ const SendMailTab: React.FC<AppProps> = ({ selectdItemFromAdrees }) => {
   });
   const [emailSettings, setEmailSettings] = useState({
     email1: "it@gmail.com",
-    email2: "shahzad890.it@outlook.com",
-    email3: "bushraiqbal.it01@gmail.com",
+    email2: "test@outlook.com",
+    email3: "test2.it01@gmail.com",
   });
   const [editedEmails, setEditedEmails] = useState(emailSettings);
 

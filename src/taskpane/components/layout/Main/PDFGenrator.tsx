@@ -909,9 +909,9 @@ const EMLHandler: React.FC<AppProps> = ({ selectdItemFromAdrees }) => {
   const [emlBlob, setEmlBlob] = useState<Blob | null>(null);
   const [loading, setloading] = useState(false);
   const [emailSettings, setEmailSettings] = useState({
-    email1: "shahzadumarit@gmail.com",
-    email2: "shahzad890.it@outlook.com",
-    email3: "bushraiqbal.it01@gmail.com",
+    email1: "test@gmail.com",
+    email2: "test@outlook.com",
+    email3: "test01@gmail.com",
   });
   const [onedrivePaths, setOnedrivePaths] = useState({
     path1: "/Attachments/Demo/Folder1",
