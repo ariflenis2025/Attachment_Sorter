@@ -123,7 +123,7 @@ const SendMailTab: React.FC<AppProps> = ({ selectdItemFromAdrees }) => {
       // const redirect_uri_For_LIve="https://login.microsoftonline.com/common/oauth2/v2.0/authorize?client_id=aaa00dc4-7743-467e-8868-596ffff59e05&response_type=token&redirect_uri=https://attachment-sorter.vercel.app/assets/Dialog.html&scope=mail.send+Files.ReadWrite.All+openid+profile+email&response_mode=fragment";
       const clientId = process.env.NODE_ENV === 'development' 
       ? 'e5a4342f-c8a5-4185-948d-2e3d485b4822' 
-      : 'ce3ab054-f9ae-4f8d-b530-c7dd621e7213';
+      : '283d208b-b92f-4cde-a733-c19952f719b0';
     
     const redirectURI = process.env.NODE_ENV === 'development' 
       ? 'https://localhost:3000/assets/Dialog.html' 
